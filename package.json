@@ -10,5 +10,8 @@
   },
   "keywords": [],
   "author": "Mazharul Islam Nahid",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^13.5.1"
+  }
 }
