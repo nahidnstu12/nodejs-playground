@@ -6,7 +6,9 @@ const {
   payloadValidPhone,
   hash,
   parseJSON,
+  createRandomString
 } = require("../../lib/utility");
+const tokenHandler = require("./tokenHandler");
 // scafold
 const handler = {};
 
@@ -30,7 +32,7 @@ handler._users.post = (req, callback) => {
   const password = payloadValidString(req.body?.password);
   const tosAgreement = payloadValidBool(req.body?.tosAgreement);
 
-  //   console.log( {debug:"debug ", firstName, lastName, phone, password, tosAgreement });
+    console.log( {debug:"debug ", firstName, lastName, phone, password, tosAgreement });
 
   if (firstName && lastName && phone && password && tosAgreement) {
     // make sure user doesn't exists
@@ -52,6 +54,22 @@ handler._users.post = (req, callback) => {
             callback(500, { error: "Could not create user!" });
           }
         });
+        // create a token
+        
+        // const tokenObj = {
+        //   phone,
+        //   id: createRandomString(20),
+        //   expires: Date.now() + 3600 * 1000,
+        // };
+        // data.write("tokens",tokenObj.id, tokenObj, (err4)=>{
+        //   if (!err4) {
+        //     callback(200, {
+        //       message: "token was created successfully",
+        //     });
+        //   } else {
+        //     callback(500, { error: "Could not create token!" });
+        //   }
+        // })
       } else {
         callback(500, { message: "Server side error" });
       }
@@ -61,23 +79,31 @@ handler._users.post = (req, callback) => {
   }
 };
 
+// get user
 handler._users.get = (req, callback) => {
   const phone = payloadValidPhone(req.queryStringObject?.phone);
-
+  console.log(phone);
   if (phone) {
     // http://localhost:4000/users?phone=01621876111
-    data.read("users", phone, (err, data) => {
-      const user = { ...parseJSON(data) };
-      if (!err && user) {
-        delete user.password;
-        // console.log(data);
-        callback(200, user);
+    const token = payloadValidString(req.headersObject?.token);
+    tokenHandler._tokens.verify(token, phone, (tokenId) => {
+      if (tokenId) {
+        data.read("users", phone, (err, data) => {
+          const user = { ...parseJSON(data) };
+          if (!err && user) {
+            delete user.password;
+            // console.log(data);
+            callback(200, user);
+          } else {
+            callback(404, { error: "Requested user was not found" });
+          }
+        });
       } else {
-        callback(404, { error: "Requested user was not found" });
+        callback(403, { error: "Authentication Failure" });
       }
     });
   } else {
-    callback(404, { error: "Requested user was not found" });
+    callback(404, { error: "Your requested phone number is not right format" });
   }
 };
 
@@ -86,23 +112,32 @@ handler._users.put = (req, callback) => {
   const lastName = payloadValidString(req.body?.lastName);
   const phone = payloadValidPhone(req.body?.phone);
   const password = payloadValidString(req.body?.password);
-  const tosAgreement = payloadValidBool(req.body?.tosAgreement);
+
   if (phone) {
-    if (firstName || lastName || phone || password || tosAgreement) {
-      data.read("users", phone, (err, u) => {
-        const user = { ...parseJSON(u) };
-        if (!err && user) {
-          if (firstName) user.firstName = firstName;
-          if (lastName) user.lastName = lastName;
-          if (password) user.password = password;
+    const token = payloadValidString(req.headersObject?.token);
+    tokenHandler._tokens.verify(token, phone, (tokenId) => {
+      if (tokenId) {
+        if (firstName || lastName || password) {
+          data.read("users", phone, (err, u) => {
+            const user = { ...parseJSON(u) };
+            if (!err && user) {
+              if (firstName) user.firstName = firstName;
+              if (lastName) user.lastName = lastName;
+              if (password) user.password = hash(password);
 
-          // store & update
+              // store & update
 
-          data.update("users", phone, user, (err2) => {
-            if (!err2) {
-              callback(200, { message: "User was update successfully" });
+              data.update("users", phone, user, (err2) => {
+                if (!err2) {
+                  callback(200, { message: "User was update successfully" });
+                } else {
+                  callback(500, { error: "server side error" });
+                }
+              });
             } else {
-              callback(500, { error: "server side error" });
+              callback(400, {
+                error: "You have a problem in your request!",
+              });
             }
           });
         } else {
@@ -110,12 +145,10 @@ handler._users.put = (req, callback) => {
             error: "You have a problem in your request!",
           });
         }
-      });
-    } else {
-      callback(400, {
-        error: "You have a problem in your request!",
-      });
-    }
+      } else {
+        callback(403, { error: "Authentication Failure" });
+      }
+    });
   } else {
     callback(400, {
       error: "Invalid phone number. Please try again!",
@@ -125,20 +158,26 @@ handler._users.put = (req, callback) => {
 
 handler._users.delete = (req, callback) => {
   const phone = payloadValidPhone(req.queryStringObject?.phone);
-
+  const token = payloadValidString(req.headersObject?.token);
   if (phone) {
     // http://localhost:4000/users?phone=01621876111
-    data.read("users", phone, (err, user) => {
-      if (!err && user) {
-        data.delete("users", phone, (err2) => {
-          if (!err2) {
-            callback(200, { message: "User was sucessfully deleted" });
+    tokenHandler._tokens.verify(token, phone, (tokenId) => {
+      if (tokenId) {
+        data.read("users", phone, (err, user) => {
+          if (!err && user) {
+            data.delete("users", phone, (err2) => {
+              if (!err2) {
+                callback(200, { message: "User was sucessfully deleted" });
+              } else {
+                callback(500, { error: "Server side error" });
+              }
+            });
           } else {
-            callback(500, { error: "Server side error" });
+            callback(404, { error: "Requested user was not found" });
           }
         });
       } else {
-        callback(404, { error: "Requested user was not found" });
+        callback(403, { error: "Authentication Failure" });
       }
     });
   } else {
