@@ -2,9 +2,10 @@
   "name": "nodejs-playground",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "SET NODE_ENV=staging & nodemon index",
+    "start":"nodemon server.js",
+    "dev": "SET NODE_ENV=staging & nodemon index",
     "production": "SET NODE_ENV=production & nodemon index",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,6 +13,7 @@
   "author": "Mazharul Islam Nahid",
   "license": "ISC",
   "dependencies": {
+    "express": "^4.17.3",
     "puppeteer": "^13.5.1"
   }
 }
